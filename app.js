@@ -9,7 +9,7 @@ const methodOverride = require('method-override');
 
 //import mongoose
 const mongoose = require('mongoose');
-mongoose.connect('mongodb://localhost:27017/staycation', {
+mongoose.connect('mongodb://localhost:27017/db_staycation', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   useCreateIndex: true,

@@ -4,12 +4,71 @@ const Item = require('../models/Item')
 const Image = require('../models/Image')
 const Feature = require('../models/Feature')
 const Activity = require('../models/Activity')
+const Users = require('../models/Users')
 const fs = require('fs-extra')
 const path = require('path')
+const bcrypt = require('bcryptjs')
 
 module.exports = {
+    viewSignin: async (req, res) => {
+        try {
+            const alertMessage = req.flash('alertMessage');
+            const alertStatus = req.flash('alertStatus');
+            const alert = {
+                message: alertMessage,
+                status: alertStatus
+            };
+            if(req.session.user == null || req.session.user == undefined){
+                res.render('index', { alert,title: "Staycation | Login "})
+            } else {
+                res.redirect('/admin/dashboard')
+            }
+        } catch (error) {
+            res.render('admin/sigin')
+        }
+    },
+
+    actionSignin: async (req,res) => {
+        try {
+            const {username, password} = req.body;
+            const user = await Users.findOne({ username : username})
+            if(!user){
+                req.flash('alertMessage', 'User Not Found');
+                req.flash('alertStatus', 'danger');
+                res.redirect('/admin/signin')
+            }
+            const isPasswordMatch = await bcrypt.compare(password, user.password);
+            console.log(isPasswordMatch);
+            if(!isPasswordMatch){
+                req.flash('alertMessage', 'Wrong Password');
+                req.flash('alertStatus', 'danger');
+                res.redirect('/admin/signin')
+            }
+            req.session.user = {
+                id: user.id,
+                username: user.username
+            }
+            res.redirect('/admin/dashboard')
+        } catch (error) {
+            res.render('index', {title: "Staycation | Dashboard"})
+        }
+    },
+
+    actionLogout: (req, res) =>{
+        req.session.destroy();
+        res.redirect('/admin/signin')
+    },
+
     viewDashboard: (req, res) => {
-        res.render('admin/dashboard/view_dashboard', {title: "Staycation | Dashboard"})
+        try {
+            res.render('admin/dashboard/view_dashboard', { 
+                user : req.session.user,
+                title: "Staycation | Dashboard"
+            })
+        } catch (error) {
+            
+        }
+        
     },
 
     viewCategory: async (req, res) => {
@@ -21,11 +80,10 @@ module.exports = {
                 message: alertMessage,
                 status: alertStatus
             };
-            res.render('admin/category/view_category', {category, alert, title: "Staycation | Category "})
+            res.render('admin/category/view_category', { user : req.session.user,category, alert, title: "Staycation | Category "})
         } catch (error) {
             res.render('admin/category/view_category')
         }
-
     },
 
     addCategory: async (req, res) => {
@@ -91,6 +149,7 @@ module.exports = {
             };
             res.render('admin/bank/view_bank', {
                 title: "Staycation | Bank",
+                user : req.session.user,
                 alert,
                 bank
             })
@@ -189,6 +248,7 @@ module.exports = {
             const category = await Category.find();
             res.render('admin/item/view_item', {
                 title: "Staycation | Item",
+                user : req.session.user,
                 category,
                 alert,
                 item,
@@ -250,6 +310,7 @@ module.exports = {
             res.render('admin/item/view_item', {
                 title: "Staycation | Show Item",
                 category,
+                user : req.session.user,
                 alert,
                 item,
                 action: 'show image'
@@ -381,6 +442,7 @@ module.exports = {
             const activity = await Activity.find({itemId:itemId})
             res.render('admin/item/detail_item/view_detail_item',{
                 title : 'Staycation | Detail Item',
+                user : req.session.user,
                 alert,
                 itemId,
                 feature,
