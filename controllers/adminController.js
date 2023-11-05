@@ -5,10 +5,41 @@ const Image = require('../models/Image')
 const Feature = require('../models/Feature')
 const Activity = require('../models/Activity')
 const Users = require('../models/Users')
+const Booking = require('../models/Booking')
+const Member = require('../models/Member')
 const fs = require('fs-extra')
 const path = require('path')
 const bcrypt = require('bcryptjs')
+const {WebSocketServer} = require('ws')
+const socketServer = new WebSocketServer({port: 8888})
 
+const {MongoClient} = require('mongodb')
+const url = 'mongodb://127.0.0.1:27017'
+const client = new MongoClient(url)
+
+socketServer.on('connection', ws => {
+    console.log('new client connected')
+    async function getSales() {
+        try{
+            await client.connect()
+            const data = await client.db('db_staycation').collection('items').find({}).toArray()
+            // const data = await Booking.find()
+            socketServer.clients.forEach( e => {
+                e.send(JSON.stringify(data))
+            })
+            // console.log(data)
+        } finally {
+            // client.close()
+        }
+    }
+    ws.on('message', message => {
+        switch (JSON.parse(message).type) {
+            case 'load':
+                getSales()
+            break;
+        }
+    })
+})
 module.exports = {
     viewSignin: async (req, res) => {
         try {
@@ -59,10 +90,16 @@ module.exports = {
         res.redirect('/admin/signin')
     },
 
-    viewDashboard: (req, res) => {
+    viewDashboard: async (req, res) => {
         try {
+            const member = await Member.find();
+            const booking = await Booking.find();
+            const item = await Item.find();
             res.render('admin/dashboard/view_dashboard', { 
                 user : req.session.user,
+                member,
+                booking,
+                item,
                 title: "Staycation | Dashboard"
             })
         } catch (error) {
@@ -627,7 +664,64 @@ module.exports = {
         }
     },
 
-    viewBooking: (req, res) => {
-        res.render('admin/booking/view_booking', {title: "Staycation | Booking"})
+    viewBooking: async (req, res) => {
+        try {
+            const booking = await Booking.find().populate('memberId')
+            .populate('bankId');
+            res.render('admin/booking/view_booking', {
+                booking,
+                user : req.session.user,
+                title: "Staycation | Booking"
+            })
+        } catch (error) {
+            res.redirect('/admin/booking')
+        }
+    },
+    showDetailBooking: async (req, res)=>{
+        const { id } = req.params;
+        try {
+            const booking = await Booking.findOne({_id: id}).populate('memberId')
+            .populate('bankId');
+            const alertMessage = req.flash('alertMessage');
+            const alertStatus = req.flash('alertStatus');
+            const alert = {
+                message: alertMessage,
+                status: alertStatus
+            };
+            res.render('admin/booking/show_detail_booking', {
+                booking,
+                alert,
+                user : req.session.user,
+                title: "Staycation | Detail Booking"
+            })
+        } catch (error) {
+            res.redirect('/admin/booking')
+        }
+    },
+    actionConfirmation: async (req, res) =>{
+        const {id} = req.params
+        try {
+            const booking = await Booking.findOne({_id:id});
+            booking.payments.status = 'Accept';
+            await booking.save();
+            req.flash('alertMessage', 'Success Confirmation Payment');
+            req.flash('alertStatus', 'success');
+            res.redirect(`/admin/booking/${id}`);
+        } catch (error) {
+            res.redirect(`/admin/booking/${id}`);
+        }
+    },
+    actionReject: async (req, res) =>{
+        const {id} = req.params
+        try {
+            const booking = await Booking.findOne({_id:id});
+            booking.payments.status = 'Reject';
+            await booking.save();
+            req.flash('alertMessage', 'Success Reject Payment');
+            req.flash('alertStatus', 'success');
+            res.redirect(`/admin/booking/${id}`);
+        } catch (error) {
+            res.redirect(`/admin/booking/${id}`);
+        }
     }
 }

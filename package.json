@@ -21,6 +21,7 @@
     "mongoose-seed": "^0.6.0",
     "morgan": "~1.9.1",
     "multer": "^1.4.5-lts.1",
-    "startbootstrap-sb-admin-2": "^4.1.4"
+    "startbootstrap-sb-admin-2": "^4.1.4",
+    "ws": "^8.14.2"
   }
 }
